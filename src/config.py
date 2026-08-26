@@ -20,6 +20,18 @@ with open(ROOT / "config" / "settings.json", "r", encoding="utf-8") as f:
     SETTINGS = json.load(f)
 
 
+def effective_settings(symbol: str) -> dict:
+    """SETTINGS s prípadným prekrytím pre konkrétny symbol.
+
+    `config/settings.json` môže mať kľúč `overrides`: {"SLV": {"adx_min_trend": 25, ...}, ...}
+    — každý nástroj má inú volatilitu/charakter, jedny globálne prahy im
+    nemusia sedieť rovnako (viď scripts/optimize.py, ktorý tieto hodnoty
+    vie nájsť a walk-forward overiť, nie len naslepo odhadnúť)."""
+    merged = dict(SETTINGS)
+    merged.update(SETTINGS.get("overrides", {}).get(symbol, {}))
+    return merged
+
+
 def _read_key(env_var: str, filename: str) -> str:
     env_val = os.environ.get(env_var)
     if env_val:

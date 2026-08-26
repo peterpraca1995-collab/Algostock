@@ -21,6 +21,12 @@ Pozor: `end` nesmie byť dnešok, kým sa dnešná session ešte neskončila —
 posledná stiahnutá sviečka (čokoľvek, čo Alpaca práve má) by sa nesprávne
 vyhodnotila ako "koniec dňa" skôr, než trh reálne zavrel. `run_backtest.py`
 bez argumentov preto berie do včerajška, nie do dneška.
+
+Sťahovanie a výpočet indikátorov (`fetch_indicators`) je oddelené od
+simulácie (`simulate`) — obdobie/periódy indikátorov (EMA9, RSI14…) sa pri
+ladení nemenia, len prahy a ATR násobky (viď `scripts/optimize.py`), takže
+sa oplatí stiahnuť a spočítať raz a potom len prehrávať veľa kombinácií
+nad tými istými poľami. Šetrí to čas aj volania na Alpaca.
 """
 from __future__ import annotations
 
@@ -28,8 +34,7 @@ import math
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import alpaca_client, indicators
-from .config import SETTINGS
+from . import alpaca_client, config, indicators
 from .strategy import Snapshot, decide
 
 # koľko dní pred `start` sa dodatočne stiahne, nech majú najdlhšie
@@ -49,33 +54,53 @@ def _minutes_to_close_at(s: dict, ts: datetime) -> float:
     return (close_t - local).total_seconds() / 60
 
 
-def backtest_symbol(symbol: str, start: date, end: date) -> dict:
-    """Vráti {"trades": [...], "bars_used": N} pre jeden symbol."""
-    s = SETTINGS
+def fetch_indicators(symbol: str, start: date, end: date, s: dict | None = None) -> dict:
+    """Stiahne sviečky (od `start - WARMUP_DAYS` po `end`) a spočíta všetky
+    indikátory raz. Vráti slovník použiteľný opakovane v `simulate()` pre
+    ľubovoľné kombinácie prahov/ATR násobkov bez ďalšieho sťahovania."""
+    s = s or config.effective_settings(symbol)
     fetch_from = (datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
                   - timedelta(days=WARMUP_DAYS))
     bars = alpaca_client.get_bars(
         symbol, s["timeframe"], fetch_from.strftime("%Y-%m-%dT%H:%M:%SZ"), limit_total=20000
     )
     if not bars:
-        return {"trades": [], "bars_used": 0}
+        return {"bars": [], "symbol": symbol}
 
     closes = [b["c"] for b in bars]
     highs = [b["h"] for b in bars]
     lows = [b["l"] for b in bars]
 
-    ema_fast_arr = indicators.ema(closes, s["ema_fast"])
-    ema_slow_arr = indicators.ema(closes, s["ema_slow"])
-    rsi_arr = indicators.rsi(closes, s["rsi_period"])
-    _, _, macd_hist_arr = indicators.macd(closes, s["macd_fast"], s["macd_slow"], s["macd_signal"])
-    atr_arr = indicators.atr(highs, lows, closes, s["atr_period"])
-    cci_arr = indicators.cci(highs, lows, closes, s["cci_period"])
-    _, _, _, bb_arr = indicators.bollinger_bands(closes, s["bb_period"], s["bb_std"])
-    stoch_k_arr, stoch_d_arr = indicators.stochastic(
-        highs, lows, closes, s["stoch_k_period"], s["stoch_d_period"]
-    )
-    vwap_arr = indicators.vwap_session(bars)
-    adx_arr = indicators.adx(highs, lows, closes, s["adx_period"])
+    return {
+        "symbol": symbol,
+        "bars": bars,
+        "ema_fast": indicators.ema(closes, s["ema_fast"]),
+        "ema_slow": indicators.ema(closes, s["ema_slow"]),
+        "rsi": indicators.rsi(closes, s["rsi_period"]),
+        "macd_hist": indicators.macd(closes, s["macd_fast"], s["macd_slow"], s["macd_signal"])[2],
+        "atr": indicators.atr(highs, lows, closes, s["atr_period"]),
+        "cci": indicators.cci(highs, lows, closes, s["cci_period"]),
+        "bb_percent_b": indicators.bollinger_bands(closes, s["bb_period"], s["bb_std"])[3],
+        "stoch": indicators.stochastic(highs, lows, closes, s["stoch_k_period"], s["stoch_d_period"]),
+        "vwap": indicators.vwap_session(bars),
+        "adx": indicators.adx(highs, lows, closes, s["adx_period"]),
+        "highs": highs, "lows": lows, "closes": closes,
+    }
+
+
+def simulate(data: dict, start: date, end: date, s: dict) -> list[dict]:
+    """Simuluje obchodovanie nad vopred spočítanými indikátormi (`fetch_indicators`)
+    v rozsahu [start, end] pomocou parametrov v `s`. Nesťahuje nič — rýchle,
+    vhodné aj na tisícky kombinácií v scripts/optimize.py."""
+    bars = data["bars"]
+    if not bars:
+        return []
+    symbol = data["symbol"]
+    ema_fast_arr, ema_slow_arr = data["ema_fast"], data["ema_slow"]
+    rsi_arr, macd_hist_arr, atr_arr, cci_arr = data["rsi"], data["macd_hist"], data["atr"], data["cci"]
+    bb_arr, adx_arr, vwap_arr = data["bb_percent_b"], data["adx"], data["vwap"]
+    stoch_k_arr, stoch_d_arr = data["stoch"]
+    highs, lows, closes = data["highs"], data["lows"], data["closes"]
 
     start_str, end_str = start.isoformat(), end.isoformat()
     trades: list[dict] = []
@@ -98,8 +123,6 @@ def backtest_symbol(symbol: str, start: date, end: date) -> dict:
             continue  # zahrievacie dáta pred `start`, alebo mimo rozsahu
         is_last_of_day = (i + 1 == len(bars)) or (bars[i + 1]["t"][:10] != day)
 
-        # stop-loss / take-profit v rámci tejto sviečky (predtým, než sa
-        # vôbec pozrieme na nový signál — naživo to strážia priamo na Alpaca)
         if position:
             hit_stop = b["l"] <= position["stop"]
             hit_target = b["h"] >= position["target"]
@@ -128,7 +151,7 @@ def backtest_symbol(symbol: str, start: date, end: date) -> dict:
             mins_to_close = _minutes_to_close_at(s, _parse_ts(b["t"]))
             if mins_to_close <= s["flatten_before_close_minutes"]:
                 continue  # tesne pred koncom dňa sa nové pozície neotvárajú
-            signal, _, _ = decide(snap, has_position=False)
+            signal, _, _ = decide(snap, has_position=False, settings=s)
             if signal == "BUY":
                 atr_val = atr_arr[i]
                 qty = math.floor(s["allocation_per_symbol_usd"] / snap.price)
@@ -139,7 +162,7 @@ def backtest_symbol(symbol: str, start: date, end: date) -> dict:
                         "target": snap.price + atr_val * s["atr_target_mult"],
                     }
         else:
-            signal, _, _ = decide(snap, has_position=True)
+            signal, _, _ = decide(snap, has_position=True, settings=s)
             if signal == "SELL":
                 close(b["t"], snap.price, "signál")
                 position = None
@@ -147,33 +170,45 @@ def backtest_symbol(symbol: str, start: date, end: date) -> dict:
                 close(b["t"], snap.price, "koniec dňa")
                 position = None
 
-    return {"trades": trades, "bars_used": len(bars)}
+    return trades
+
+
+def backtest_symbol(symbol: str, start: date, end: date) -> dict:
+    """Vráti {"trades": [...], "bars_used": N} pre jeden symbol, s jeho
+    efektívnymi (prípadne per-symbol prekrytými) nastaveniami."""
+    s = config.effective_settings(symbol)
+    data = fetch_indicators(symbol, start, end, s)
+    trades = simulate(data, start, end, s)
+    return {"trades": trades, "bars_used": len(data["bars"])}
+
+
+def summarize(trades: list[dict]) -> dict:
+    wins = [t for t in trades if t["pnl"] > 0]
+    losses = [t for t in trades if t["pnl"] <= 0]
+    total_pnl = round(sum(t["pnl"] for t in trades), 2)
+    return {
+        "trades": len(trades),
+        "wins": len(wins), "losses": len(losses),
+        "win_rate_pct": round(100 * len(wins) / len(trades), 1) if trades else None,
+        "total_pnl": total_pnl,
+        "avg_pnl_per_trade": round(total_pnl / len(trades), 2) if trades else None,
+        "avg_win": round(sum(t["pnl"] for t in wins) / len(wins), 2) if wins else None,
+        "avg_loss": round(sum(t["pnl"] for t in losses) / len(losses), 2) if losses else None,
+        "best_trade": max(trades, key=lambda t: t["pnl"]) if trades else None,
+        "worst_trade": min(trades, key=lambda t: t["pnl"]) if trades else None,
+    }
 
 
 def run_backtest(start: date, end: date) -> dict:
-    """Backtest všetkých symbolov zo settings.json, vráti aj súhrn."""
+    """Backtest všetkých symbolov zo settings.json (s ich efektívnymi
+    nastaveniami vrátane overrides), vráti aj súhrn."""
     per_symbol = {}
     all_trades: list[dict] = []
-    for symbol in SETTINGS["tickers"]:
+    for symbol in config.SETTINGS["tickers"]:
         r = backtest_symbol(symbol, start, end)
         per_symbol[symbol] = r
         all_trades.extend(r["trades"])
 
     all_trades.sort(key=lambda t: t["entry_t"])
-    wins = [t for t in all_trades if t["pnl"] > 0]
-    losses = [t for t in all_trades if t["pnl"] <= 0]
-    total_pnl = round(sum(t["pnl"] for t in all_trades), 2)
-
-    summary = {
-        "start": start.isoformat(), "end": end.isoformat(),
-        "trades": len(all_trades),
-        "wins": len(wins), "losses": len(losses),
-        "win_rate_pct": round(100 * len(wins) / len(all_trades), 1) if all_trades else None,
-        "total_pnl": total_pnl,
-        "avg_pnl_per_trade": round(total_pnl / len(all_trades), 2) if all_trades else None,
-        "avg_win": round(sum(t["pnl"] for t in wins) / len(wins), 2) if wins else None,
-        "avg_loss": round(sum(t["pnl"] for t in losses) / len(losses), 2) if losses else None,
-        "best_trade": max(all_trades, key=lambda t: t["pnl"]) if all_trades else None,
-        "worst_trade": min(all_trades, key=lambda t: t["pnl"]) if all_trades else None,
-    }
-    return {"summary": summary, "trades": all_trades, "per_symbol": per_symbol}
+    return {"summary": {"start": start.isoformat(), "end": end.isoformat(), **summarize(all_trades)},
+            "trades": all_trades, "per_symbol": per_symbol}

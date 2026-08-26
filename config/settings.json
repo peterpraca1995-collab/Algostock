@@ -1,8 +1,16 @@
 {
-  "tickers": ["AAPL", "SOFI", "GLD", "MSFT", "NVDA", "TSLA", "AMD", "SLV"],
+  "tickers": [
+    "AAPL",
+    "SOFI",
+    "GLD",
+    "MSFT",
+    "NVDA",
+    "TSLA",
+    "AMD",
+    "SLV"
+  ],
   "timeframe": "15Min",
   "bars_lookback_days": 25,
-
   "ema_fast": 9,
   "ema_slow": 21,
   "rsi_period": 14,
@@ -16,7 +24,6 @@
   "atr_period": 14,
   "atr_stop_mult": 2.0,
   "atr_target_mult": 3.0,
-
   "cci_period": 20,
   "fib_lookback": 60,
   "bb_period": 20,
@@ -25,15 +32,63 @@
   "stoch_d_period": 3,
   "adx_period": 14,
   "adx_min_trend": 20,
-
   "signal_buy_threshold": 4,
   "signal_sell_threshold": -3,
-
   "allocation_per_symbol_usd": 3000,
-
   "market_tz": "America/New_York",
   "market_open": "09:30",
   "market_close": "16:00",
   "run_interval_minutes": 15,
-  "flatten_before_close_minutes": 15
+  "flatten_before_close_minutes": 15,
+  "overrides": {
+    "AAPL": {
+      "signal_buy_threshold": 3,
+      "signal_sell_threshold": -4,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 2.5,
+      "atr_target_mult": 2.0
+    },
+    "SOFI": {
+      "signal_buy_threshold": 5,
+      "signal_sell_threshold": -4,
+      "adx_min_trend": 20,
+      "atr_stop_mult": 2.0,
+      "atr_target_mult": 3.0
+    },
+    "GLD": {
+      "signal_buy_threshold": 3,
+      "signal_sell_threshold": -3,
+      "adx_min_trend": 20,
+      "atr_stop_mult": 1.5,
+      "atr_target_mult": 4.0
+    },
+    "MSFT": {
+      "signal_buy_threshold": 3,
+      "signal_sell_threshold": -4,
+      "adx_min_trend": 20,
+      "atr_stop_mult": 2.0,
+      "atr_target_mult": 2.0
+    },
+    "TSLA": {
+      "signal_buy_threshold": 4,
+      "signal_sell_threshold": -3,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 2.0,
+      "atr_target_mult": 4.0
+    },
+    "AMD": {
+      "signal_buy_threshold": 5,
+      "signal_sell_threshold": -4,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 2.5,
+      "atr_target_mult": 4.0
+    },
+    "SLV": {
+      "signal_buy_threshold": 3,
+      "signal_sell_threshold": -4,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 2.5,
+      "atr_target_mult": 4.0
+    }
+  }
 }

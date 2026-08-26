@@ -46,8 +46,7 @@ def _vote_trend(snap: Snapshot) -> int:
     return 1 if snap.ema_fast > snap.ema_slow else -1
 
 
-def _vote_rsi(snap: Snapshot) -> int:
-    s = SETTINGS
+def _vote_rsi(snap: Snapshot, s: dict) -> int:
     if snap.rsi is None:
         return 0
     if s["rsi_buy_min"] <= snap.rsi <= s["rsi_buy_max"]:
@@ -131,12 +130,16 @@ def _vote_vwap(snap: Snapshot) -> int:
     return 0
 
 
-def decide(snap: Snapshot, has_position: bool) -> tuple[str, str, dict]:
-    """Vráti (signal, dôvod, votes). signal je 'BUY' | 'SELL' | 'HOLD'."""
-    s = SETTINGS
+def decide(snap: Snapshot, has_position: bool, settings: dict | None = None) -> tuple[str, str, dict]:
+    """Vráti (signal, dôvod, votes). signal je 'BUY' | 'SELL' | 'HOLD'.
+
+    `settings`, ak je zadané, prebije globálny SETTINGS — používa sa na
+    per-symbolové prahy (`config.effective_settings`) a na sweep v
+    scripts/optimize.py, ktorý skúša veľa kombinácií bez zápisu na disk."""
+    s = settings if settings is not None else SETTINGS
     votes = {
         "trend": _vote_trend(snap),
-        "rsi": _vote_rsi(snap),
+        "rsi": _vote_rsi(snap, s),
         "macd": _vote_macd(snap),
         "cci": _vote_cci(snap),
         "fib": _vote_fib(snap),

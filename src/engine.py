@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from . import alpaca_client, db, indicators
 from .alpaca_client import AlpacaError
+from . import config
 from .config import SETTINGS
 from .strategy import Snapshot, decide
 
@@ -29,7 +30,7 @@ def _minutes_to_close(s: dict) -> float:
 
 
 def run_symbol(symbol: str) -> dict:
-    s = SETTINGS
+    s = config.effective_settings(symbol)  # per-symbol prekrytie, viď config.py
     ts_now = datetime.now(timezone.utc).isoformat()
     try:
         bars = alpaca_client.get_bars(
@@ -96,7 +97,7 @@ def run_symbol(symbol: str) -> dict:
     )
     atr_val = atr_arr[-1]
 
-    signal, reason, votes = decide(snap, has_position=bool(position))
+    signal, reason, votes = decide(snap, has_position=bool(position), settings=s)
 
     # Účel appky je vnútrodenný smer, nie držať pozíciu cez noc — bez tohto by
     # SELL prišiel, len keď skóre spadne pod prah, čo sa mohlo stať aj o pár

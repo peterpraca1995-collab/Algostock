@@ -94,18 +94,49 @@ Nastavenie: [`config/settings.json`](config/settings.json)
 Toto je štartovacia, zámerne jednoduchá stratégia — dá sa a **oplatí sa ju
 ladiť** až po pár týždňoch pozorovania, ako sa správa.
 
+## Backtest a per-symbolové ladenie
+
+```bash
+python3 scripts/run_backtest.py                       # posledné 3 mesiace
+python3 scripts/run_backtest.py 2026-07-01 2026-08-25  # vlastný rozsah
+python3 scripts/optimize.py                            # per-symbol ladenie, posledný rok
+```
+
+`run_backtest.py` simuluje deň po dni presne to, čo appka robí naživo
+(`src/backtest.py`), nad tou istou `strategy.decide()` logikou — žiadna
+oddelená kópia pravidiel medzi backtestom a živým obchodovaním.
+
+`optimize.py` rieši, že 8 sledovaných tickerov majú rôznu volatilitu a
+jedny globálne prahy im nemusia sedieť rovnako. Pre každý symbol
+vyskúša mriežku kombinácií (`signal_buy_threshold`, `signal_sell_threshold`,
+`adx_min_trend`, ATR násobky stopu/cieľa) na prvých ~8 mesiacoch roka
+a najlepšiu overí na posledných ~4 mesiacoch, ktoré pri hľadaní vôbec
+nevidela (walk-forward) — override sa do `config/settings.json` (kľúč
+`overrides`) zapíše len keď na tomto neviditeľnom úseku naozaj prekonal
+default, nie len na dátach, kde sa hľadal. Bez toho by šlo o
+prispôsobenie sa šumu, nie o skutočné zlepšenie.
+
+**Aj tak s tým počítaj:** malý rozdiel medzi train a test výsledkom
+(napr. TSLA) je dôveryhodný; veľký rozdiel (train omnoho lepší než test,
+aj keď test ešte prekonal default) znamená, že aj vyladený nástroj môže
+byť pre túto stratégiu jednoducho nespoľahlivý — vtedy má zmysel ho
+sledovať ďalej, nie brať override ako hotovú vec.
+
 ## Ako appka funguje
 
 ```
 src/alpaca_client.py    – REST volania na Alpaca (dáta + obchody)
 src/indicators.py       – EMA, RSI, MACD, ATR, CCI, Fibonacci retracement (čistý Python)
-src/strategy.py         – skórovacia rozhodovacia logika (5 indikátorov hlasuje)
+src/strategy.py         – skórovacia rozhodovacia logika (8 indikátorov hlasuje)
 src/engine.py           – jeden "tick": dáta → indikátory → skóre → obchod → log
+src/backtest.py         – tá istá logika na historických sviečkach (bez Alpaca účtu)
 src/scheduler.py        – lokálny variant plánovača (background vlákno) — pre beh na Macu
 src/db.py               – SQLite log (data/trading.db) — história signálov aj equity krivka
 src/export_status.py    – export data/trading.db → docs/data/status.json pre statický dashboard
 src/server.py           – lokálny Flask dashboard + REST API (alternatíva k docs/)
 scripts/run_tick.py     – vstupný bod pre GitHub Actions (jedno vyhodnotenie + export)
+scripts/run_backtest.py – spustí backtest, viď vyššie
+scripts/optimize.py     – per-symbolové walk-forward ladenie, viď vyššie
 .github/workflows/      – 15-minútový cron job
 docs/                    – statický dashboard pre GitHub Pages (HTML/JS/CSS, žiadne CDN závislosti)
 web/                     – rovnaký dashboard pre lokálny Flask server
