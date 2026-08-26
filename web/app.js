@@ -49,6 +49,7 @@ async function loadStatus() {
       <td>${fmt(t.rsi, 1)}</td>
       <td>${fmt(t.macd_hist, 3)}</td>
       <td>${fmt(t.cci, 0)}</td>
+      <td>${fmt(t.adx, 1)}</td>
       <td><b>${t.score !== undefined && t.score !== null ? (t.score > 0 ? "+" : "") + t.score : "—"}</b></td>
       <td class="sig-${t.signal || 'HOLD'}">${t.signal || "—"}</td>
       <td class="act-${t.action || ''}">${t.action || "—"}</td>

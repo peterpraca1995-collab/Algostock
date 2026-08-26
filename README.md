@@ -59,16 +59,22 @@ Nastavenie: [`config/settings.json`](config/settings.json)
 - **AAPL, SOFI, GLD, MSFT, NVDA, TSLA, AMD, SLV** (zlato/striebro cez ETF,
   keďže Alpaca neobchoduje komoditné futures priamo)
 - Hodinové sviečky (`1Hour`)
-- **Skórovací systém — 5 indikátorov hlasuje** (`src/strategy.py`), každý -1/0/+1:
+- **Skórovací systém — 8 indikátorov hlasuje** (`src/strategy.py`), každý -1/0/+1:
   - `trend` — EMA9 vs EMA21 (smer)
   - `rsi` — RSI14 momentum, mimo extrémov (prekúpené/prepredané = bez hlasu)
   - `macd` — MACD histogram (smer momentu)
   - `cci` — CCI20, hlasuje len pri silnom breakoute (>+100 / <-100)
   - `fib` — cena sa odráža od Fibonacci retracement úrovne (23.6/38.2/50/61.8/78.6 %,
     počítané zo swing high/low za posledných 60 sviečok) v smere trendu
-  - Súčet hlasov = **skóre** (-5 až +5). Vstup (BUY) pri skóre ≥ `signal_buy_threshold`
-    (default +3), exit (SELL) pri skóre ≤ `signal_sell_threshold` (default -2, zámerne
-    citlivejšie na exit než na vstup). Prahy sa dajú ladiť v `config/settings.json`.
+  - `bb` — Bollinger %B, cena sa odráža od dolného/horného pásma (volatilita/mean-reversion)
+  - `stoch` — Stochastic %K/%D kríž z prepredanosti/prekúpenosti (iné časovanie než RSI)
+  - `vwap` — cena nad/pod session VWAP (objemovo vážená cena, štandard pre intradenné obchodovanie)
+  - Súčet hlasov = **skóre**. Vstup (BUY) pri skóre ≥ `signal_buy_threshold`
+    (default +4 z max ±8), exit (SELL) pri skóre ≤ `signal_sell_threshold` (default -3,
+    zámerne citlivejšie na exit než na vstup). Prahy sa dajú ladiť v `config/settings.json`.
+  - **ADX14 ako filter sily trendu** — aj keď skóre prah splní, appka BUY neurobí, ak
+    ADX < `adx_min_trend` (default 20): trh práve nemá skutočný trend (chop/sideways),
+    signály sú tam nespoľahlivé. Neplatí pre exit — z pozície appka vždy vie odísť.
   - V dashboarde aj v logu je vidieť presný rozpis hlasov za každý indikátor —
     nikdy nie je to "čierna skrinka".
 - Každá kúpa ide ako **bracket order** — stop-loss vo vzdialenosti `2×ATR14`

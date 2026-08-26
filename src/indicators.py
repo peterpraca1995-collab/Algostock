@@ -143,3 +143,122 @@ def fibonacci_levels(highs: list[float], lows: list[float], lookback: int = 60) 
         "uptrend": uptrend,
         "levels": levels,
     }
+
+
+def bollinger_bands(
+    closes: list[float], period: int = 20, num_std: float = 2.0
+) -> tuple[list[float | None], list[float | None], list[float | None], list[float | None]]:
+    """Vracia (horné pásmo, stred/SMA, dolné pásmo, %B).
+
+    %B = 0 na dolnom pásme, 1 na hornom, 0.5 v strede — ukazuje polohu ceny
+    voči volatilite, nezávisle od trendových indikátorov.
+    """
+    n = len(closes)
+    upper: list[float | None] = [None] * n
+    mid: list[float | None] = [None] * n
+    lower: list[float | None] = [None] * n
+    percent_b: list[float | None] = [None] * n
+    for i in range(period - 1, n):
+        window = closes[i - period + 1 : i + 1]
+        m = sum(window) / period
+        variance = sum((c - m) ** 2 for c in window) / period
+        sd = variance ** 0.5
+        u = m + num_std * sd
+        l = m - num_std * sd
+        mid[i], upper[i], lower[i] = m, u, l
+        percent_b[i] = (closes[i] - l) / (u - l) if (u - l) != 0 else 0.5
+    return upper, mid, lower, percent_b
+
+
+def stochastic(
+    highs: list[float], lows: list[float], closes: list[float], k_period: int = 14, d_period: int = 3
+) -> tuple[list[float | None], list[float | None]]:
+    """Stochastic oscillator (%K, %D) — časovanie obratu, iný výpočet než RSI."""
+    n = len(closes)
+    k: list[float | None] = [None] * n
+    for i in range(k_period - 1, n):
+        hh = max(highs[i - k_period + 1 : i + 1])
+        ll = min(lows[i - k_period + 1 : i + 1])
+        k[i] = 100 * (closes[i] - ll) / (hh - ll) if (hh - ll) != 0 else 50.0
+    d: list[float | None] = [None] * n
+    for i in range(n):
+        if k[i] is None:
+            continue
+        window = [k[j] for j in range(max(0, i - d_period + 1), i + 1) if k[j] is not None]
+        if len(window) == d_period:
+            d[i] = sum(window) / d_period
+    return k, d
+
+
+def vwap_session(bars: list[dict]) -> list[float | None]:
+    """Kumulatívny (session-anchored) VWAP — resetuje sa na začiatku každého
+    obchodného dňa (podľa dátumu v `t` timestampe sviečky). Používa objem,
+    na rozdiel od ostatných indikátorov tu počítaných len z ceny."""
+    out: list[float | None] = []
+    cum_pv = 0.0
+    cum_vol = 0.0
+    current_day = None
+    for b in bars:
+        day = b["t"][:10]
+        if day != current_day:
+            current_day = day
+            cum_pv = 0.0
+            cum_vol = 0.0
+        typical = (b["h"] + b["l"] + b["c"]) / 3
+        vol = b.get("v") or 0
+        cum_pv += typical * vol
+        cum_vol += vol
+        out.append(cum_pv / cum_vol if cum_vol > 0 else None)
+    return out
+
+
+def adx(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> list[float | None]:
+    """Average Directional Index (Wilder) — sila trendu (0-100), bez smeru.
+    Používa sa ako filter: nízke ADX = trh nemá trend, signály sa ignorujú."""
+    n = len(closes)
+    out: list[float | None] = [None] * n
+    if n <= period * 2:
+        return out
+
+    plus_dm = [0.0] * n
+    minus_dm = [0.0] * n
+    tr = [0.0] * n
+    for i in range(1, n):
+        up_move = highs[i] - highs[i - 1]
+        down_move = lows[i - 1] - lows[i]
+        plus_dm[i] = up_move if (up_move > down_move and up_move > 0) else 0.0
+        minus_dm[i] = down_move if (down_move > up_move and down_move > 0) else 0.0
+        tr[i] = max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+
+    def _di(smoothed_dm: float, smoothed_tr: float) -> float:
+        return 100 * smoothed_dm / smoothed_tr if smoothed_tr != 0 else 0.0
+
+    atr_s = sum(tr[1 : period + 1]) / period
+    plus_dm_s = sum(plus_dm[1 : period + 1]) / period
+    minus_dm_s = sum(minus_dm[1 : period + 1]) / period
+
+    dx: list[float | None] = [None] * n
+    plus_di = _di(plus_dm_s, atr_s)
+    minus_di = _di(minus_dm_s, atr_s)
+    dx[period] = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) != 0 else 0.0
+
+    for i in range(period + 1, n):
+        atr_s = (atr_s * (period - 1) + tr[i]) / period
+        plus_dm_s = (plus_dm_s * (period - 1) + plus_dm[i]) / period
+        minus_dm_s = (minus_dm_s * (period - 1) + minus_dm[i]) / period
+        plus_di = _di(plus_dm_s, atr_s)
+        minus_di = _di(minus_dm_s, atr_s)
+        dx[i] = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) != 0 else 0.0
+
+    valid_dx = [v for v in dx[period : period * 2] if v is not None]
+    if len(valid_dx) < period:
+        return out
+    adx_val = sum(valid_dx) / period
+    idx = period * 2 - 1
+    out[idx] = adx_val
+    for i in range(idx + 1, n):
+        if dx[i] is None:
+            continue
+        adx_val = (adx_val * (period - 1) + dx[i]) / period
+        out[i] = adx_val
+    return out

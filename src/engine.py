@@ -33,6 +33,7 @@ def run_symbol(symbol: str) -> dict:
     needed = max(
         s["ema_slow"], s["rsi_period"], s["macd_slow"] + s["macd_signal"],
         s["atr_period"], s["cci_period"], s["fib_lookback"],
+        s["bb_period"], s["stoch_k_period"] + s["stoch_d_period"], s["adx_period"] * 2 + 2,
     ) + 2
     if len(bars) < needed:
         db.log_tick(ts=ts_now, symbol=symbol, price=None, ema_fast=None, ema_slow=None,
@@ -51,6 +52,10 @@ def run_symbol(symbol: str) -> dict:
     atr_arr = indicators.atr(highs, lows, closes, s["atr_period"])
     cci_arr = indicators.cci(highs, lows, closes, s["cci_period"])
     fib = indicators.fibonacci_levels(highs, lows, s["fib_lookback"])
+    _, _, _, bb_percent_b_arr = indicators.bollinger_bands(closes, s["bb_period"], s["bb_std"])
+    stoch_k_arr, stoch_d_arr = indicators.stochastic(highs, lows, closes, s["stoch_k_period"], s["stoch_d_period"])
+    vwap_arr = indicators.vwap_session(bars)
+    adx_arr = indicators.adx(highs, lows, closes, s["adx_period"])
 
     try:
         position = alpaca_client.get_position(symbol)
@@ -70,6 +75,13 @@ def run_symbol(symbol: str) -> dict:
         macd_hist=macd_hist_arr[-1],
         cci=cci_arr[-1],
         fib=fib,
+        bb_percent_b=bb_percent_b_arr[-1],
+        stoch_k=stoch_k_arr[-1],
+        stoch_d=stoch_d_arr[-1],
+        prev_stoch_k=stoch_k_arr[-2],
+        prev_stoch_d=stoch_d_arr[-2],
+        vwap=vwap_arr[-1],
+        adx=adx_arr[-1],
     )
     atr_val = atr_arr[-1]
 
@@ -108,6 +120,7 @@ def run_symbol(symbol: str) -> dict:
         ts=ts_now, symbol=symbol, price=snap.price,
         ema_fast=snap.ema_fast, ema_slow=snap.ema_slow, rsi=snap.rsi,
         macd_hist=snap.macd_hist, atr=atr_val, cci=snap.cci, score=score,
+        bb_percent_b=snap.bb_percent_b, stoch_k=snap.stoch_k, vwap=snap.vwap, adx=snap.adx,
         votes=json.dumps(votes),
         signal=signal, action=action, reason=reason, qty=qty, notes=notes,
     )

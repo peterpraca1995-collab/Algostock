@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS ticks (
     atr REAL,
     cci REAL,
     score INTEGER,
+    bb_percent_b REAL,
+    stoch_k REAL,
+    vwap REAL,
+    adx REAL,
     votes TEXT,
     signal TEXT,
     action TEXT,
@@ -49,9 +53,23 @@ def connect():
         conn.close()
 
 
+# Stĺpce pridané po prvom nasadení — ALTER TABLE migrácia, aby sa NIKDY
+# nezmazala existujúca história obchodov (v repe je reálna história z Alpaca).
+_MIGRATIONS = {
+    "bb_percent_b": "REAL",
+    "stoch_k": "REAL",
+    "vwap": "REAL",
+    "adx": "REAL",
+}
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(_SCHEMA)
+        existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(ticks)")}
+        for col, col_type in _MIGRATIONS.items():
+            if col not in existing_cols:
+                conn.execute(f"ALTER TABLE ticks ADD COLUMN {col} {col_type}")
 
 
 def log_tick(**kwargs) -> None:

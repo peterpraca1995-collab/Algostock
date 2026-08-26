@@ -6,12 +6,17 @@ Hlasy (každý -1 / 0 / +1):
   macd   – MACD histogram (smer momentu)
   cci    – CCI20 (silný momentum breakout)
   fib    – cena sa odráža od Fibonacci retracement úrovne v smere trendu
+  bb     – Bollinger %B (odraz od pásma — volatilita/mean-reversion)
+  stoch  – Stochastic %K/%D kríž z extrému (časovanie obratu)
+  vwap   – cena nad/pod session VWAP (objemovo vážená cena)
 
-Súčet hlasov (skóre od -5 do +5) sa porovná s prahom v settings.json.
+Súčet hlasov (skóre) sa porovná s prahom v settings.json. ADX navyše
+funguje ako filter sily trendu — pri slabom trende appka signál ignoruje,
+aj keby skóre inak prah splnilo (chráni pred obchodovaním v "chaose").
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .config import SETTINGS
 
@@ -26,6 +31,13 @@ class Snapshot:
     macd_hist: float | None
     cci: float | None
     fib: dict | None  # výstup indicators.fibonacci_levels()
+    bb_percent_b: float | None
+    stoch_k: float | None
+    stoch_d: float | None
+    prev_stoch_k: float | None
+    prev_stoch_d: float | None
+    vwap: float | None
+    adx: float | None
 
 
 def _vote_trend(snap: Snapshot) -> int:
@@ -83,6 +95,42 @@ def _vote_fib(snap: Snapshot) -> int:
     return 0
 
 
+def _vote_bb(snap: Snapshot) -> int:
+    """Cena blízko dolného pásma a odráža sa hore => bullish (mean-reversion),
+    symetricky pri hornom pásme."""
+    if snap.bb_percent_b is None or snap.prev_price is None:
+        return 0
+    if snap.bb_percent_b <= 0.15 and snap.price > snap.prev_price:
+        return 1
+    if snap.bb_percent_b >= 0.85 and snap.price < snap.prev_price:
+        return -1
+    return 0
+
+
+def _vote_stoch(snap: Snapshot) -> int:
+    """Kríž %K nad %D z prepredanosti (<30) => bullish, opačne z prekúpenosti (>70)."""
+    if None in (snap.stoch_k, snap.stoch_d, snap.prev_stoch_k, snap.prev_stoch_d):
+        return 0
+    crossed_up = snap.prev_stoch_k <= snap.prev_stoch_d and snap.stoch_k > snap.stoch_d
+    crossed_down = snap.prev_stoch_k >= snap.prev_stoch_d and snap.stoch_k < snap.stoch_d
+    if crossed_up and snap.stoch_k < 30:
+        return 1
+    if crossed_down and snap.stoch_k > 70:
+        return -1
+    return 0
+
+
+def _vote_vwap(snap: Snapshot) -> int:
+    if snap.vwap is None or snap.vwap == 0:
+        return 0
+    diff_pct = (snap.price - snap.vwap) / snap.vwap
+    if diff_pct > 0.001:
+        return 1
+    if diff_pct < -0.001:
+        return -1
+    return 0
+
+
 def decide(snap: Snapshot, has_position: bool) -> tuple[str, str, dict]:
     """Vráti (signal, dôvod, votes). signal je 'BUY' | 'SELL' | 'HOLD'."""
     s = SETTINGS
@@ -92,6 +140,9 @@ def decide(snap: Snapshot, has_position: bool) -> tuple[str, str, dict]:
         "macd": _vote_macd(snap),
         "cci": _vote_cci(snap),
         "fib": _vote_fib(snap),
+        "bb": _vote_bb(snap),
+        "stoch": _vote_stoch(snap),
+        "vwap": _vote_vwap(snap),
     }
     score = sum(votes.values())
     votes_str = ", ".join(f"{k}={v:+d}" for k, v in votes.items())
@@ -101,9 +152,20 @@ def decide(snap: Snapshot, has_position: bool) -> tuple[str, str, dict]:
 
     if not has_position:
         if score >= buy_th:
-            return "BUY", f"skóre {score:+d} ≥ prah {buy_th:+d} ({votes_str})", votes
+            if snap.adx is not None and snap.adx < s["adx_min_trend"]:
+                return (
+                    "HOLD",
+                    f"skóre {score:+d} by stačilo, ale trend je slabý "
+                    f"(ADX={snap.adx:.1f} < {s['adx_min_trend']}), signál ignorovaný ({votes_str})",
+                    votes,
+                )
+            return "BUY", f"skóre {score:+d} ≥ prah {buy_th:+d}, ADX={_fmt(snap.adx)} ({votes_str})", votes
         return "HOLD", f"skóre {score:+d} < prah {buy_th:+d} na vstup ({votes_str})", votes
     else:
         if score <= sell_th:
             return "SELL", f"skóre {score:+d} ≤ prah {sell_th:+d}, obrat trendu ({votes_str})", votes
         return "HOLD", f"pozícia drží, skóre {score:+d} nad prahom na exit ({votes_str})", votes
+
+
+def _fmt(v: float | None) -> str:
+    return f"{v:.1f}" if v is not None else "—"

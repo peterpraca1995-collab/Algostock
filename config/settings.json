@@ -1,7 +1,7 @@
 {
   "tickers": ["AAPL", "SOFI", "GLD", "MSFT", "NVDA", "TSLA", "AMD", "SLV"],
   "timeframe": "1Hour",
-  "bars_lookback_days": 15,
+  "bars_lookback_days": 25,
 
   "ema_fast": 9,
   "ema_slow": 21,
@@ -19,9 +19,15 @@
 
   "cci_period": 20,
   "fib_lookback": 60,
+  "bb_period": 20,
+  "bb_std": 2.0,
+  "stoch_k_period": 14,
+  "stoch_d_period": 3,
+  "adx_period": 14,
+  "adx_min_trend": 20,
 
-  "signal_buy_threshold": 3,
-  "signal_sell_threshold": -2,
+  "signal_buy_threshold": 4,
+  "signal_sell_threshold": -3,
 
   "allocation_per_symbol_usd": 3000,
 
