@@ -68,7 +68,7 @@ async function loadAll() {
   });
 
   document.getElementById("schedule-info").textContent =
-    `Naposledy vyhodnotené: ${fmtTime(data.generated_at)} · beží hodinovo cez GitHub Actions`;
+    `Naposledy vyhodnotené: ${fmtTime(data.generated_at)} · beží každých 15 min cez GitHub Actions`;
 
   const rows = data.history || [];
   const logTbody = document.querySelector("#log-table tbody");
@@ -94,7 +94,7 @@ async function loadAll() {
   if (points.length < 2) {
     ctx.fillStyle = "#8b96ad";
     ctx.font = "13px sans-serif";
-    ctx.fillText("Zatiaľ nie je dosť dát na krivku (vytvorí sa po prvých hodinových behoch).", 12, h / 2);
+    ctx.fillText("Zatiaľ nie je dosť dát na krivku (vytvorí sa po prvých behoch).", 12, h / 2);
     return;
   }
   const values = points.map(p => p.equity);

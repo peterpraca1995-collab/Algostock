@@ -93,7 +93,7 @@ async function loadEquity() {
   if (points.length < 2) {
     ctx.fillStyle = "#8b96ad";
     ctx.font = "13px sans-serif";
-    ctx.fillText("Zatiaľ nie je dosť dát na krivku (vytvorí sa po prvých hodinových behoch).", 12, h / 2);
+    ctx.fillText("Zatiaľ nie je dosť dát na krivku (vytvorí sa po prvých behoch).", 12, h / 2);
     return;
   }
   const values = points.map(p => p.equity);

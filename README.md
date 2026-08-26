@@ -1,9 +1,12 @@
 # Investičná appka — technická analýza (paper trading)
 
-Appka, ktorá každú hodinu (počas obchodných hodín US trhu) stiahne hodinové
-sviečky pre sledované symboly, spočíta technické indikátory, rozhodne o
-signáli a — na **paper (demo) účte** Alpaca — automaticky otvorí/zatvorí
-pozíciu. Bežia peniaze naničmo, nič reálne sa neobchoduje.
+Appka, ktorá každých 15 minút (počas obchodných hodín US trhu) stiahne
+15-minútové sviečky pre sledované symboly, spočíta technické indikátory,
+rozhodne o signáli a — na **paper (demo) účte** Alpaca — automaticky
+otvorí/zatvorí pozíciu. Cieľ je čo najpresnejšie chytiť vnútrodenný smer,
+nie držať pozíciu cez noc — appka preto pred zatvorením trhu každú
+otvorenú pozíciu sama zatvorí, deň sa tak vždy vyhodnotí sám v sebe.
+Bežia peniaze naničmo, nič reálne sa neobchoduje.
 
 Beží ako **GitHub Actions cron job** — nezávisle od toho, či máš zapnutý
 počítač. Dashboard je statická stránka (GitHub Pages), pozrieš si ju z
@@ -29,10 +32,10 @@ telefónu aj odkiaľkoľvek.
 4. **Zapni GitHub Pages** (repo → Settings → Pages → Source: *Deploy from a
    branch* → Branch: `main`, priečinok `/docs`). O pár minút bude dashboard na
    `https://<tvoj-účet>.github.io/<názov-repa>/`.
-5. Hotovo. Workflow [`​.github/workflows/hourly-trading.yml`](.github/workflows/hourly-trading.yml)
-   sa spúšťa automaticky každú hodinu v obchodných hodinách (aj ručne cez
-   záložku *Actions* → *Hodinové vyhodnotenie* → *Run workflow*, keby si chcel
-   vidieť výsledok hneď a nečakať na najbližšiu celú hodinu).
+5. Hotovo. Workflow [`​.github/workflows/trading.yml`](.github/workflows/trading.yml)
+   sa spúšťa automaticky každých 15 minút v obchodných hodinách (aj ručne cez
+   záložku *Actions* → *Vyhodnotenie (paper trading)* → *Run workflow*, keby
+   si chcel vidieť výsledok hneď a nečakať na najbližší 15-minútový krok).
 
 Každý beh si po sebe zapíše výsledky (`data/trading.db`, `docs/data/status.json`)
 späť do repa — tak si dashboard aj história vždy k dispozícii, nič sa nestráca.
@@ -49,7 +52,7 @@ python -m src.server
 ```
 
 Otvorí sa `http://127.0.0.1:8765`. Appka ale musí fyzicky bežať (Mac zapnutý),
-aby sa hodinové vyhodnotenia diali — preto je pre bežné používanie lepšia
+aby sa vyhodnotenia diali — preto je pre bežné používanie lepšia
 GitHub Actions verzia vyššie.
 
 ## Sledované symboly a stratégia
@@ -58,7 +61,13 @@ Nastavenie: [`config/settings.json`](config/settings.json)
 
 - **AAPL, SOFI, GLD, MSFT, NVDA, TSLA, AMD, SLV** (zlato/striebro cez ETF,
   keďže Alpaca neobchoduje komoditné futures priamo)
-- Hodinové sviečky (`1Hour`)
+- 15-minútové sviečky (`15Min`) — kratší rámec než pôvodný `1Hour`, nech sa
+  zachytí viac vnútrodenných pohybov. Indikátory sú počítané v počte sviečok,
+  takže sa tým aj skrátila ich reálna pamäť (EMA9 ~2,25 h namiesto 9 h).
+- **Pozície sa nedržia cez noc.** Posledných `flatten_before_close_minutes`
+  (default 15) pred zatvorením trhu appka existujúcu pozíciu vždy zavrie
+  a nové BUY už neotvára — účel je vnútrodenný smer, deň sa má vyhodnotiť
+  sám v sebe.
 - **Skórovací systém — 8 indikátorov hlasuje** (`src/strategy.py`), každý -1/0/+1:
   - `trend` — EMA9 vs EMA21 (smer)
   - `rsi` — RSI14 momentum, mimo extrémov (prekúpené/prepredané = bez hlasu)
@@ -97,7 +106,7 @@ src/db.py               – SQLite log (data/trading.db) — história signálov
 src/export_status.py    – export data/trading.db → docs/data/status.json pre statický dashboard
 src/server.py           – lokálny Flask dashboard + REST API (alternatíva k docs/)
 scripts/run_tick.py     – vstupný bod pre GitHub Actions (jedno vyhodnotenie + export)
-.github/workflows/      – hodinový cron job
+.github/workflows/      – 15-minútový cron job
 docs/                    – statický dashboard pre GitHub Pages (HTML/JS/CSS, žiadne CDN závislosti)
 web/                     – rovnaký dashboard pre lokálny Flask server
 ```

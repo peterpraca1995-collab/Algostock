@@ -1,6 +1,6 @@
 {
   "tickers": ["AAPL", "SOFI", "GLD", "MSFT", "NVDA", "TSLA", "AMD", "SLV"],
-  "timeframe": "1Hour",
+  "timeframe": "15Min",
   "bars_lookback_days": 25,
 
   "ema_fast": 9,
@@ -34,5 +34,6 @@
   "market_tz": "America/New_York",
   "market_open": "09:30",
   "market_close": "16:00",
-  "run_minutes_after_hour": 5
+  "run_interval_minutes": 15,
+  "flatten_before_close_minutes": 15
 }

@@ -5,6 +5,7 @@ import json
 import math
 import traceback
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from . import alpaca_client, db, indicators
 from .alpaca_client import AlpacaError
@@ -15,6 +16,16 @@ from .strategy import Snapshot, decide
 def _start_iso(days: int) -> str:
     start = datetime.now(timezone.utc) - timedelta(days=days)
     return start.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _minutes_to_close(s: dict) -> float:
+    """Koľko minút zostáva do konca dnešnej obchodnej session (môže vyjsť aj
+    záporne, ak beh dobehol tesne po zatvorení — vtedy sa má tiež flattenovať)."""
+    tz = ZoneInfo(s["market_tz"])
+    now = datetime.now(tz)
+    ch, cm = (int(x) for x in s["market_close"].split(":"))
+    close_t = now.replace(hour=ch, minute=cm, second=0, microsecond=0)
+    return (close_t - now).total_seconds() / 60
 
 
 def run_symbol(symbol: str) -> dict:
@@ -86,6 +97,22 @@ def run_symbol(symbol: str) -> dict:
     atr_val = atr_arr[-1]
 
     signal, reason, votes = decide(snap, has_position=bool(position))
+
+    # Účel appky je vnútrodenný smer, nie držať pozíciu cez noc — bez tohto by
+    # SELL prišiel, len keď skóre spadne pod prah, čo sa mohlo stať aj o pár
+    # dní. Posledných `flatten_before_close_minutes` pred zatvorením trhu preto
+    # appka existujúcu pozíciu vždy zavrie a nové BUY už neotvára, nech je
+    # deň vždy vyhodnotený sám v sebe.
+    mins_to_close = _minutes_to_close(s)
+    flatten_window = s["flatten_before_close_minutes"]
+    if mins_to_close <= flatten_window:
+        if position:
+            signal = "SELL"
+            reason = f"koniec dňa (zatvára o {max(0, round(mins_to_close))} min) — nútené zatvorenie pozície"
+        elif signal == "BUY":
+            signal = "HOLD"
+            reason = f"koniec dňa (zatvára o {max(0, round(mins_to_close))} min) — nové pozície sa dnes už neotvárajú"
+
     action, qty, notes = "HOLD", None, ""
 
     if signal == "BUY" and not position and pending_order:

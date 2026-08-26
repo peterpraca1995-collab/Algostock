@@ -31,17 +31,16 @@ def _is_market_open(now: datetime) -> bool:
 
 
 def _next_trigger(now: datetime) -> datetime:
-    """Najbližší budúci čas HH:{run_minutes_after_hour} v rámci obchodných hodín."""
-    minute = SETTINGS["run_minutes_after_hour"]
-    candidate = now.replace(minute=minute, second=0, microsecond=0)
-    if candidate <= now:
-        candidate += timedelta(hours=1)
+    """Najbližší budúci násobok `run_interval_minutes` v rámci obchodných hodín."""
+    interval = SETTINGS["run_interval_minutes"]
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    steps_so_far = (now - midnight).total_seconds() / 60 / interval
+    candidate = midnight + timedelta(minutes=interval * (int(steps_so_far) + 1))
     # posuň na najbližší okamih, keď je zároveň trh otvorený
-    for _ in range(24 * 8):  # max ~8 dní dopredu
+    for _ in range(24 * 4 * 8):  # max ~8 dní dopredu, po krokoch `interval` minút
         if _is_market_open(candidate):
             return candidate
-        candidate += timedelta(hours=1)
-        candidate = candidate.replace(minute=minute, second=0, microsecond=0)
+        candidate += timedelta(minutes=interval)
     return candidate
 
 
