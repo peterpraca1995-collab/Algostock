@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Investičná appka — technická analýza</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>📈 Investičná appka <span class="badge">PAPER TRADING</span></h1>
+  <div id="clock"></div>
+</header>
+
+<section class="account-bar" id="account-bar">Načítavam účet…</section>
+
+<section class="panel">
+  <h2>Symboly a signály</h2>
+  <table id="symbols-table">
+    <thead>
+      <tr>
+        <th>Symbol</th><th>Cena</th><th>EMA9</th><th>EMA21</th><th>RSI14</th>
+        <th>MACD hist</th><th>CCI20</th><th>Skóre</th><th>Signál</th><th>Akcia</th><th>Pozícia</th><th>Nerealiz. P/L</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <div class="controls">
+    <span id="schedule-info"></span>
+    <button id="run-now">Spustiť vyhodnotenie teraz</button>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Equity krivka (paper účet)</h2>
+  <canvas id="equity-chart" width="900" height="220"></canvas>
+</section>
+
+<section class="panel">
+  <h2>Posledné rozhodnutia</h2>
+  <table id="log-table">
+    <thead><tr><th>Čas</th><th>Symbol</th><th>Signál</th><th>Akcia</th><th>Dôvod</th><th>Poznámka</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<footer>
+  Toto je paper (demo) obchodovanie — nejde o reálne peniaze. Appka sama neprepína na live účet.
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

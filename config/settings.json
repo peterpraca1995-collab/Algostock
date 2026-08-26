@@ -1,0 +1,32 @@
+{
+  "tickers": ["AAPL", "SOFI", "GLD", "MSFT", "NVDA", "TSLA", "AMD", "SLV"],
+  "timeframe": "1Hour",
+  "bars_lookback_days": 15,
+
+  "ema_fast": 9,
+  "ema_slow": 21,
+  "rsi_period": 14,
+  "rsi_buy_min": 40,
+  "rsi_buy_max": 70,
+  "rsi_sell_min": 30,
+  "rsi_sell_max": 60,
+  "macd_fast": 12,
+  "macd_slow": 26,
+  "macd_signal": 9,
+  "atr_period": 14,
+  "atr_stop_mult": 2.0,
+  "atr_target_mult": 3.0,
+
+  "cci_period": 20,
+  "fib_lookback": 60,
+
+  "signal_buy_threshold": 3,
+  "signal_sell_threshold": -2,
+
+  "allocation_per_symbol_usd": 3000,
+
+  "market_tz": "America/New_York",
+  "market_open": "09:30",
+  "market_close": "16:00",
+  "run_minutes_after_hour": 5
+}

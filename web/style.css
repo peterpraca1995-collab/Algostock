@@ -1,0 +1,91 @@
+:root {
+  --bg: #0f1420;
+  --panel: #171e2e;
+  --border: #2a3346;
+  --text: #e7ecf7;
+  --muted: #8b96ad;
+  --green: #3ddc84;
+  --red: #ff5a6e;
+  --amber: #ffb547;
+  --accent: #5b8def;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "SF Pro Text", Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0 24px 48px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 { font-size: 20px; margin: 0; font-weight: 600; }
+.badge {
+  font-size: 11px;
+  background: var(--amber);
+  color: #24170a;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-weight: 700;
+}
+#clock { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.account-bar {
+  display: flex;
+  gap: 28px;
+  padding: 14px 18px;
+  margin-top: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.account-bar b { color: var(--text); }
+.account-bar .label { color: var(--muted); font-size: 12px; display: block; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  margin-top: 18px;
+}
+.panel h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 14px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; }
+
+.sig-BUY { color: var(--green); font-weight: 700; }
+.sig-SELL { color: var(--red); font-weight: 700; }
+.sig-HOLD { color: var(--muted); }
+.act-BUY, .act-SELL { color: var(--text); font-weight: 700; }
+
+.controls { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+#schedule-info { color: var(--muted); font-size: 12px; }
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.1); }
+button:disabled { opacity: .5; cursor: default; }
+
+canvas { width: 100%; height: 220px; }
+
+footer { color: var(--muted); font-size: 12px; margin-top: 30px; text-align: center; }

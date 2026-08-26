@@ -1,0 +1,43 @@
+name: Hodinové vyhodnotenie (paper trading)
+
+on:
+  schedule:
+    # Beží každú hodinu v HH:05 UTC, pondelok–piatok, s rezervou pokrývajúcou
+    # US trh aj cez letný/zimný čas (9:30–16:00 ET). Mimo skutočných obchodných
+    # hodín skript sám nič neobchoduje (kontroluje Alpaca /v2/clock).
+    - cron: "5 12-22 * * 1-5"
+  workflow_dispatch: {}  # manuálne spustenie z GitHub Actions záložky
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trading-engine
+  cancel-in-progress: false
+
+jobs:
+  run-tick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Nainštalovať závislosti
+        run: pip install -r requirements.txt
+
+      - name: Spustiť vyhodnotenie
+        env:
+          ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: python scripts/run_tick.py
+
+      - name: Uložiť výsledky späť do repa
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/trading.db docs/data/status.json
+          git diff --cached --quiet || git commit -m "Hodinové vyhodnotenie $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
