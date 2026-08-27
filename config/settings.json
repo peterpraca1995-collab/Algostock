@@ -7,7 +7,14 @@
     "NVDA",
     "TSLA",
     "AMD",
-    "SLV"
+    "SLV",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "AVGO",
+    "NFLX",
+    "PLTR",
+    "JPM"
   ],
   "timeframe": "15Min",
   "bars_lookback_days": 25,
@@ -86,6 +93,27 @@
     "SLV": {
       "signal_buy_threshold": 3,
       "signal_sell_threshold": -4,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 2.5,
+      "atr_target_mult": 4.0
+    },
+    "GOOGL": {
+      "signal_buy_threshold": 3,
+      "signal_sell_threshold": -3,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 1.5,
+      "atr_target_mult": 4.0
+    },
+    "AMZN": {
+      "signal_buy_threshold": 4,
+      "signal_sell_threshold": -4,
+      "adx_min_trend": 15,
+      "atr_stop_mult": 1.5,
+      "atr_target_mult": 4.0
+    },
+    "NFLX": {
+      "signal_buy_threshold": 5,
+      "signal_sell_threshold": -3,
       "adx_min_trend": 15,
       "atr_stop_mult": 2.5,
       "atr_target_mult": 4.0

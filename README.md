@@ -59,8 +59,13 @@ GitHub Actions verzia vyššie.
 
 Nastavenie: [`config/settings.json`](config/settings.json)
 
-- **AAPL, SOFI, GLD, MSFT, NVDA, TSLA, AMD, SLV** (zlato/striebro cez ETF,
-  keďže Alpaca neobchoduje komoditné futures priamo)
+- **15 symbolov** — mega-cap tech (AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA),
+  polovodiče (AMD, AVGO), ďalšie likvidné mená naprieč sektormi (NFLX, PLTR,
+  JPM, SOFI) a komodity cez ETF (GLD zlato, SLV striebro — Alpaca neobchoduje
+  futures priamo). Vyberané zámerne naprieč sektormi/veľkosťou, nie len
+  "mega-cap tech", nech je backtest/ladenie čo najmenej skreslené jedným typom trhu.
+  (Rolls-Royce sa cez Alpaca obchodovať nedá — primárne kótovaná v Londýne,
+  jej US OTC ADR RYCEY je na Alpaca označené ako netradovateľné.)
 - 15-minútové sviečky (`15Min`) — kratší rámec než pôvodný `1Hour`, nech sa
   zachytí viac vnútrodenných pohybov. Indikátory sú počítané v počte sviečok,
   takže sa tým aj skrátila ich reálna pamäť (EMA9 ~2,25 h namiesto 9 h).
@@ -106,7 +111,7 @@ python3 scripts/optimize.py                            # per-symbol ladenie, pos
 (`src/backtest.py`), nad tou istou `strategy.decide()` logikou — žiadna
 oddelená kópia pravidiel medzi backtestom a živým obchodovaním.
 
-`optimize.py` rieši, že 8 sledovaných tickerov majú rôznu volatilitu a
+`optimize.py` rieši, že sledované tickery majú rôznu volatilitu a
 jedny globálne prahy im nemusia sedieť rovnako. Pre každý symbol
 vyskúša mriežku kombinácií (`signal_buy_threshold`, `signal_sell_threshold`,
 `adx_min_trend`, ATR násobky stopu/cieľa) na prvých ~8 mesiacoch roka
@@ -167,9 +172,9 @@ Prechod na live účet by znamenal:
 
 ## Známe obmedzenia (MVP)
 
-- Appka musí fyzicky bežať v čase obchodných hodín, aby sa vyhodnotenia diali
-  (žiadny cloud/server beh) — ak chceš spoľahlivosť aj keď appku nemáš
-  otvorenú, dá sa doplniť `launchd` job.
+- Beží na GitHub Actions, takže nezávisí od zapnutého Macu — jediné riziko je,
+  že GitHub pri `*/15` frekvencii vie beh občas o pár minút meškať/preskočiť
+  pri väčšom zaťažení; appka to prežije, len sa vyhodnotí o čosi neskôr.
 - Veľkosť pozície je vždy v celých kusoch akcií (žiadne zlomkové podiely).
 - Dátový feed je Alpaca IEX (free) — mierne odlišný objem/ceny od hlavných búrz,
   bežné pre menšie účty.
