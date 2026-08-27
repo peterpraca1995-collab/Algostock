@@ -29,7 +29,10 @@ def _minutes_to_close(s: dict) -> float:
     return (close_t - now).total_seconds() / 60
 
 
-def run_symbol(symbol: str) -> dict:
+def run_symbol(symbol: str, equity: float | None, exposure: dict) -> dict:
+    """`equity` = aktuálne účtovné equity (na dopočet veľkosti pozície ako % z neho).
+    `exposure` = zdieľaný tracker {"used": $} cez všetky symboly v tomto behu,
+    aby súčet novo otváraných pozícií v jednom tiku nepreliezol portfóliový limit."""
     s = config.effective_settings(symbol)  # per-symbol prekrytie, viď config.py
     ts_now = datetime.now(timezone.utc).isoformat()
     try:
@@ -120,19 +123,32 @@ def run_symbol(symbol: str) -> dict:
         action, notes = "HOLD", "BUY signál, ale objednávka na tento symbol už čaká na vyplnenie"
 
     elif signal == "BUY" and not position:
-        allocation = s["allocation_per_symbol_usd"]
-        qty = math.floor(allocation / snap.price)
-        if qty < 1:
-            action, notes = "HOLD", "alokácia na symbol je menšia než cena 1 kusu"
+        allocation = (
+            equity * s["live_allocation_pct_of_equity"]
+            if equity is not None
+            else s["backtest_allocation_usd"]
+        )
+        cap = (equity * s["live_max_total_exposure_pct"]) if equity is not None else float("inf")
+        if exposure["used"] + allocation > cap:
+            action, notes = "HOLD", (
+                f"limit celkovej expozície portfólia by sa prekročil "
+                f"({exposure['used']:.0f}$ + {allocation:.0f}$ > {cap:.0f}$ = "
+                f"{s['live_max_total_exposure_pct']*100:.0f}% z equity)"
+            )
         else:
-            stop_price = snap.price - atr_val * s["atr_stop_mult"]
-            target_price = snap.price + atr_val * s["atr_target_mult"]
-            try:
-                order = alpaca_client.submit_bracket_buy(symbol, qty, stop_price, target_price)
-                action = "BUY"
-                notes = f"order {order.get('id')}, stop={stop_price:.2f}, target={target_price:.2f}"
-            except AlpacaError as e:
-                action, notes = "HOLD", f"chyba objednávky BUY: {e}"
+            qty = math.floor(allocation / snap.price)
+            if qty < 1:
+                action, notes = "HOLD", "alokácia na symbol je menšia než cena 1 kusu"
+            else:
+                stop_price = snap.price - atr_val * s["atr_stop_mult"]
+                target_price = snap.price + atr_val * s["atr_target_mult"]
+                try:
+                    order = alpaca_client.submit_bracket_buy(symbol, qty, stop_price, target_price)
+                    action = "BUY"
+                    exposure["used"] += allocation
+                    notes = f"alokácia {allocation:.0f}$, order {order.get('id')}, stop={stop_price:.2f}, target={target_price:.2f}"
+                except AlpacaError as e:
+                    action, notes = "HOLD", f"chyba objednávky BUY: {e}"
 
     elif signal == "SELL" and position:
         qty = float(position.get("qty", 0))
@@ -157,21 +173,37 @@ def run_symbol(symbol: str) -> dict:
 
 def run_all() -> list[dict]:
     results = []
+
+    acct = None
+    equity = None
+    try:
+        acct = alpaca_client.get_account()
+        equity = float(acct["equity"])
+    except Exception as e:
+        results.append({"symbol": "_account_", "error": f"nepodarilo sa načítať účet: {e}"})
+
+    try:
+        positions = alpaca_client.get_positions()
+        current_exposure = sum(abs(float(p["market_value"])) for p in positions)
+    except Exception:
+        current_exposure = 0.0
+    exposure = {"used": current_exposure}
+
     for symbol in SETTINGS["tickers"]:
         try:
-            results.append(run_symbol(symbol))
+            results.append(run_symbol(symbol, equity, exposure))
         except Exception as e:  # nikdy nezhoď celý cyklus kvôli jednému symbolu
             results.append({"symbol": symbol, "error": f"{e}\n{traceback.format_exc()}"})
 
-    try:
-        acct = alpaca_client.get_account()
-        db.log_equity(
-            ts=datetime.now(timezone.utc).isoformat(),
-            equity=float(acct["equity"]),
-            cash=float(acct["cash"]),
-            buying_power=float(acct["buying_power"]),
-        )
-    except Exception as e:
-        results.append({"symbol": "_account_", "error": str(e)})
+    if acct is not None:
+        try:
+            db.log_equity(
+                ts=datetime.now(timezone.utc).isoformat(),
+                equity=float(acct["equity"]),
+                cash=float(acct["cash"]),
+                buying_power=float(acct["buying_power"]),
+            )
+        except Exception as e:
+            results.append({"symbol": "_account_", "error": f"equity log zlyhal: {e}"})
 
     return results

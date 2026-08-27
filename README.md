@@ -94,7 +94,13 @@ Nastavenie: [`config/settings.json`](config/settings.json)
 - Každá kúpa ide ako **bracket order** — stop-loss vo vzdialenosti `2×ATR14`
   pod vstupom a take-profit `3×ATR14` nad vstupom. Tieto sa strážia priamo na
   strane Alpaca (funguje aj keď appka práve nebeží), nie appkou samotnou.
-- Alokácia na symbol: `allocation_per_symbol_usd` v settings.json (default $3000)
+- **Veľkosť pozície = % z aktuálneho equity** (`live_allocation_pct_of_equity`,
+  default 7 %) — škáluje sa s rastom/poklesom účtu, nie pevná dolárová suma.
+  Navyše `live_max_total_exposure_pct` (default 60 %) je strop na súčet
+  všetkých súčasne otvorených pozícií — keby v jednom behu splnilo prah viac
+  symbolov naraz, appka neprekročí tento podiel equity ani cez margin.
+  Pri backteste (bez živého účtu) sa namiesto toho používa pevná
+  `backtest_allocation_usd` (default $3000) na jeden obchod.
 
 Toto je štartovacia, zámerne jednoduchá stratégia — dá sa a **oplatí sa ju
 ladiť** až po pár týždňoch pozorovania, ako sa správa.

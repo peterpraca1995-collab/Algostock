@@ -154,7 +154,7 @@ def simulate(data: dict, start: date, end: date, s: dict) -> list[dict]:
             signal, _, _ = decide(snap, has_position=False, settings=s)
             if signal == "BUY":
                 atr_val = atr_arr[i]
-                qty = math.floor(s["allocation_per_symbol_usd"] / snap.price)
+                qty = math.floor(s["backtest_allocation_usd"] / snap.price)
                 if qty >= 1 and atr_val:
                     position = {
                         "entry_t": b["t"], "entry_price": snap.price, "qty": qty,
