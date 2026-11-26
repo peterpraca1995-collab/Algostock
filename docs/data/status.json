@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-26T03:43:17.855491+00:00",
+  "generated_at": "2026-11-26T21:11:37.390437+00:00",
   "tickers": [
     "AAPL",
     "SOFI",
@@ -43,15 +43,15 @@
     "multiplier": "4",
     "shorting_enabled": true,
     "equity": "90635.43",
-    "last_equity": "90661.49",
+    "last_equity": "90635.43",
     "long_market_value": "22333.74",
     "short_market_value": "0",
     "position_market_value": "22333.74",
     "initial_margin": "11166.87",
     "maintenance_margin": "6700.12",
-    "last_maintenance_margin": "6707.94",
-    "sma": "91543.74",
-    "balance_asof": "2026-11-24",
+    "last_maintenance_margin": "6700.12",
+    "sma": "90661.49",
+    "balance_asof": "2026-11-25",
     "crypto_tier": 1,
     "intraday_adjustments": "0",
     "pending_reg_taf_fees": "0"
